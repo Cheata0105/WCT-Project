@@ -18,6 +18,8 @@ A complete React-based payment portal for the Royal University of Phnom Penh (RU
 - React Router v6
 - Tailwind CSS
 - Vite
+- Laravel 12 API backend
+- SQLite database
 
 ## Installation
 
@@ -33,13 +35,37 @@ cd rupp-payment-portal
 npm install
 ```
 
-3. Start the development server:
+3. Install backend dependencies:
+
+```bash
+cd backend
+composer install
+php artisan key:generate
+php artisan migrate --seed
+cd ..
+```
+
+4. Start the Laravel API server:
+
+```bash
+cd backend
+php artisan serve --host=127.0.0.1 --port=8000
+```
+
+5. In a second terminal, start the React development server:
 
 ```bash
 npm run dev
 ```
 
-4. Open your browser and visit `http://localhost:5173`
+6. Open your browser and visit `http://localhost:5173`
+
+The React app uses `VITE_API_URL=http://127.0.0.1:8000/api` by default. Create a local `.env` from `.env.example` if your API runs somewhere else. The backend allows `http://localhost:5173` and `http://127.0.0.1:5173` by default; set `FRONTEND_URLS` in `backend/.env` to change that list.
+
+Demo accounts seeded by Laravel:
+
+- Student: `student@rupp.edu.kh` / `student123`
+- Admin: `admin@rupp.edu.kh` / `admin123`
 
 ## Project Structure
 

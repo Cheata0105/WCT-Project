@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 
 export default function PaymentSubmission() {
-  const { user, submitPayment } = useApp();
+  const { user, isLoading, submitPayment } = useApp();
   const navigate = useNavigate();
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [success, setSuccess] = useState(false);
@@ -17,10 +17,13 @@ export default function PaymentSubmission() {
   const [amount, setAmount] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [paymentDate, setPaymentDate] = useState('');
-  const [courseName, setCourseName] = useState('');
 
   // Redirect if not authenticated
   useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
     if (!user || user.role !== 'student') {
       navigate('/login');
     } else {
@@ -28,9 +31,9 @@ export default function PaymentSubmission() {
       setStudentId(user.studentId || '');
       setFullName(user.name);
     }
-  }, [user, navigate]);
+  }, [user, isLoading, navigate]);
 
-  if (!user) return null;
+  if (isLoading || !user) return null;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -54,28 +57,32 @@ export default function PaymentSubmission() {
 
     // Convert file to base64
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       const base64String = reader.result as string;
       
       // Submit payment with base64 file
-      submitPayment({
-        studentId,
-        studentName: fullName,
-        contactNumber,
-        department,
-        academicYear,
-        amount: parseFloat(amount),
-        transactionId: transactionId || `TXN-${Date.now()}`,
-        paymentDate,
-        courseName: `${department} - ${academicYear}`,
-        receiptFile: base64String,
-        status: 'Pending',
-      });
+      try {
+        await submitPayment({
+          studentId,
+          studentName: fullName,
+          contactNumber,
+          department,
+          academicYear,
+          amount: parseFloat(amount),
+          transactionId: transactionId || `TXN-${Date.now()}`,
+          paymentDate,
+          courseName: `${department} - ${academicYear}`,
+          receiptFile: base64String,
+          status: 'Pending',
+        });
 
-      setSuccess(true);
-      setTimeout(() => {
-        navigate('/student/dashboard');
-      }, 2000);
+        setSuccess(true);
+        setTimeout(() => {
+          navigate('/student/dashboard');
+        }, 2000);
+      } catch {
+        alert('Payment submission failed. Please try again.');
+      }
     };
     
     reader.readAsDataURL(receiptFile);

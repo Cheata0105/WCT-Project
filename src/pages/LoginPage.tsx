@@ -20,11 +20,11 @@ export default function LoginPage() {
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
-    const success = login(loginEmail, loginPassword);
+    const success = await login(loginEmail, loginPassword);
     if (success) {
       // Check if admin or student
       if (loginEmail.includes('admin')) {
@@ -37,7 +37,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
@@ -47,7 +47,7 @@ export default function LoginPage() {
       return;
     }
 
-    const success = register(regName, regEmail, regPassword, regStudentId);
+    const success = await register(regName, regEmail, regPassword, regStudentId);
     if (success) {
       setSuccess('Registration successful! Redirecting...');
       setTimeout(() => navigate('/student/dashboard'), 1500);

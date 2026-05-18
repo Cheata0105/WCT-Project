@@ -3,28 +3,32 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 
 export default function AdminDashboard() {
-  const { user, payments, approvePayment, rejectPayment, logout } = useApp();
+  const { user, payments, isLoading, approvePayment, rejectPayment, logout } = useApp();
   const navigate = useNavigate();
   const [filter, setFilter] = useState<'all' | 'Pending' | 'Approved' | 'Rejected'>('all');
 
   useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
     if (!user) {
       navigate('/login');
     } else if (user.role !== 'admin') {
       navigate('/student/dashboard');
     }
-  }, [user, navigate]);
+  }, [user, isLoading, navigate]);
 
-  if (!user || user.role !== 'admin') {
+  if (isLoading || !user || user.role !== 'admin') {
     return null;
   }
 
-  const handleApprove = (id: string) => {
-    approvePayment(id);
+  const handleApprove = async (id: string) => {
+    await approvePayment(id);
   };
 
-  const handleReject = (id: string) => {
-    rejectPayment(id);
+  const handleReject = async (id: string) => {
+    await rejectPayment(id);
   };
 
   const viewReceipt = (payment: typeof filteredPayments[0]) => {
@@ -41,7 +45,6 @@ export default function AdminDashboard() {
     : payments.filter(p => p.status === filter);
 
   const pendingCount = payments.filter((p) => p.status === 'Pending').length;
-  const approvedCount = payments.filter((p) => p.status === 'Approved').length;
   const rejectedCount = payments.filter((p) => p.status === 'Rejected').length;
 
   return (

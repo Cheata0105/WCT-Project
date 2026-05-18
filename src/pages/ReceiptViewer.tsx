@@ -4,14 +4,16 @@ import { useEffect } from 'react';
 
 export default function ReceiptViewer() {
   const { id } = useParams<{ id: string }>();
-  const { payments, user } = useApp();
+  const { payments, user, isLoading, approvePayment, rejectPayment } = useApp();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!user) {
+    if (!isLoading && !user) {
       navigate('/login');
     }
-  }, [user, navigate]);
+  }, [user, isLoading, navigate]);
+
+  if (isLoading) return null;
 
   const payment = payments.find((p) => p.id === id);
 
@@ -157,11 +159,17 @@ export default function ReceiptViewer() {
           {/* Action Buttons for Admin */}
           {user?.role === 'admin' && payment.status === 'Pending' && (
             <div className="mt-6 pt-6 border-t border-slate-700 space-y-3">
-              <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors">
+              <button
+                onClick={async () => approvePayment(payment.id)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-colors"
+              >
                 <span className="material-symbols-outlined text-[20px]">check_circle</span>
                 <span>Approve Payment</span>
               </button>
-              <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors">
+              <button
+                onClick={async () => rejectPayment(payment.id)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors"
+              >
                 <span className="material-symbols-outlined text-[20px]">cancel</span>
                 <span>Reject Payment</span>
               </button>

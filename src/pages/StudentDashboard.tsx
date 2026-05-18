@@ -3,17 +3,21 @@ import { useApp } from '../context/AppContext';
 import { useEffect } from 'react';
 
 export default function StudentDashboard() {
-  const { user, payments, logout } = useApp();
+  const { user, payments, isLoading, logout } = useApp();
   const navigate = useNavigate();
 
   // Redirect to login if not authenticated
   useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
     if (!user || user.role !== 'student') {
       navigate('/login');
     }
-  }, [user, navigate]);
+  }, [user, isLoading, navigate]);
 
-  if (!user) return null;
+  if (isLoading || !user) return null;
 
   // Filter payments for current student
   const studentPayments = payments.filter((p) => p.studentId === user.studentId);

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiRequest } from '../lib/api';
 
 interface User {
   id: string;
@@ -27,191 +28,159 @@ interface Payment {
 interface AppContextType {
   user: User | null;
   payments: Payment[];
-  login: (email: string, password: string) => boolean;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  register: (name: string, email: string, password: string, studentId: string) => boolean;
-  submitPayment: (payment: Omit<Payment, 'id' | 'dateSubmitted'>) => void;
-  approvePayment: (id: string) => void;
-  rejectPayment: (id: string) => void;
+  register: (name: string, email: string, password: string, studentId: string) => Promise<boolean>;
+  submitPayment: (payment: Omit<Payment, 'id' | 'dateSubmitted'>) => Promise<void>;
+  approvePayment: (id: string) => Promise<void>;
+  rejectPayment: (id: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Demo accounts
-const DEMO_ACCOUNTS = [
-  {
-    id: '1',
-    name: 'Chan Sotheara',
-    email: 'student@rupp.edu.kh',
-    password: 'student123',
-    studentId: '102938',
-    role: 'student' as const,
-  },
-  {
-    id: '2',
-    name: 'Admin User',
-    email: 'admin@rupp.edu.kh',
-    password: 'admin123',
-    role: 'admin' as const,
-  },
-];
+const AUTH_TOKEN_KEY = 'authToken';
 
-// Initial demo payments
-const INITIAL_PAYMENTS: Payment[] = [
-  {
-    id: '1',
-    studentId: '102938',
-    studentName: 'Chan Sotheara',
-    contactNumber: '012 345 678',
-    department: 'Computer Science',
-    academicYear: 'Year 2 - Semester 1',
-    amount: 450,
-    transactionId: 'TXN-001',
-    paymentDate: '2024-03-10',
-    courseName: 'Computer Science 101',
-    receiptFile: 'receipt-001.pdf',
-    status: 'Approved',
-    dateSubmitted: '2024-03-10',
-  },
-  {
-    id: '2',
-    studentId: '102938',
-    studentName: 'Chan Sotheara',
-    contactNumber: '012 345 678',
-    department: 'Computer Science',
-    academicYear: 'Year 2 - Semester 1',
-    amount: 450,
-    transactionId: 'TXN-002',
-    paymentDate: '2024-02-15',
-    courseName: 'Data Structures',
-    receiptFile: 'receipt-002.pdf',
-    status: 'Pending',
-    dateSubmitted: '2024-02-15',
-  },
-];
+interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+interface MeResponse {
+  user: User;
+}
+
+interface PaymentsResponse {
+  payments: Payment[];
+}
+
+interface PaymentResponse {
+  payment: Payment;
+}
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [accounts, setAccounts] = useState(DEMO_ACCOUNTS);
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem(AUTH_TOKEN_KEY));
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load data from localStorage on mount
   useEffect(() => {
-    const savedUser = localStorage.getItem('currentUser');
-    const savedPayments = localStorage.getItem('payments');
-    const savedAccounts = localStorage.getItem('accounts');
+    const restoreSession = async () => {
+      if (!token) {
+        setIsLoading(false);
+        return;
+      }
 
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    if (savedPayments) {
-      setPayments(JSON.parse(savedPayments));
-    } else {
-      setPayments(INITIAL_PAYMENTS);
-      localStorage.setItem('payments', JSON.stringify(INITIAL_PAYMENTS));
-    }
-    if (savedAccounts) {
-      setAccounts(JSON.parse(savedAccounts));
-    } else {
-      localStorage.setItem('accounts', JSON.stringify(DEMO_ACCOUNTS));
-    }
-  }, []);
+      try {
+        const me = await apiRequest<MeResponse>('/me', {}, token);
+        const paymentData = await apiRequest<PaymentsResponse>('/payments', {}, token);
 
-  // Save payments to localStorage whenever they change
-  useEffect(() => {
-    if (payments.length > 0) {
-      localStorage.setItem('payments', JSON.stringify(payments));
-    }
-  }, [payments]);
+        setUser(me.user);
+        setPayments(paymentData.payments);
+      } catch {
+        setUser(null);
+        setPayments([]);
+        setToken(null);
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const login = (email: string, password: string): boolean => {
-    const account = accounts.find(
-      (acc) => acc.email === email && acc.password === password
-    );
+    restoreSession();
+  }, [token]);
 
-    if (account) {
-      const loggedInUser: User = {
-        id: account.id,
-        name: account.name,
-        email: account.email,
-        studentId: account.studentId,
-        role: account.role,
-      };
-      setUser(loggedInUser);
-      localStorage.setItem('currentUser', JSON.stringify(loggedInUser));
+  const persistAuth = async (auth: AuthResponse) => {
+    setToken(auth.token);
+    setUser(auth.user);
+    localStorage.setItem(AUTH_TOKEN_KEY, auth.token);
+
+    const paymentData = await apiRequest<PaymentsResponse>('/payments', {}, auth.token);
+    setPayments(paymentData.payments);
+  };
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const auth = await apiRequest<AuthResponse>('/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+
+      await persistAuth(auth);
       return true;
+    } catch {
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
+    if (token) {
+      apiRequest('/logout', { method: 'POST' }, token).catch(() => undefined);
+    }
+
     setUser(null);
-    localStorage.removeItem('currentUser');
+    setPayments([]);
+    setToken(null);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
   };
 
-  const register = (
+  const register = async (
     name: string,
     email: string,
     password: string,
     studentId: string
-  ): boolean => {
-    // Check if email already exists
-    if (accounts.some((acc) => acc.email === email)) {
+  ): Promise<boolean> => {
+    try {
+      const auth = await apiRequest<AuthResponse>('/register', {
+        method: 'POST',
+        body: JSON.stringify({ name, email, password, studentId }),
+      });
+
+      await persistAuth(auth);
+      return true;
+    } catch {
       return false;
     }
-
-    const newAccount = {
-      id: Date.now().toString(),
-      name,
-      email,
-      password,
-      studentId,
-      role: 'student' as const,
-    };
-
-    const updatedAccounts = [...accounts, newAccount];
-    setAccounts(updatedAccounts);
-    localStorage.setItem('accounts', JSON.stringify(updatedAccounts));
-
-    // Auto login after registration
-    const newUser: User = {
-      id: newAccount.id,
-      name: newAccount.name,
-      email: newAccount.email,
-      studentId: newAccount.studentId,
-      role: newAccount.role,
-    };
-    setUser(newUser);
-    localStorage.setItem('currentUser', JSON.stringify(newUser));
-
-    return true;
   };
 
-  const submitPayment = (payment: Omit<Payment, 'id' | 'dateSubmitted'>) => {
-    const newPayment: Payment = {
-      ...payment,
-      id: Date.now().toString(),
-      dateSubmitted: new Date().toISOString().split('T')[0],
-      status: 'Pending',
-    };
+  const submitPayment = async (payment: Omit<Payment, 'id' | 'dateSubmitted'>) => {
+    if (!token) return;
 
-    setPayments([...payments, newPayment]);
+    const data = await apiRequest<PaymentResponse>(
+      '/payments',
+      {
+        method: 'POST',
+        body: JSON.stringify(payment),
+      },
+      token
+    );
+
+    setPayments((current) => [data.payment, ...current]);
   };
 
-  const approvePayment = (id: string) => {
-    setPayments(
-      payments.map((payment) =>
-        payment.id === id ? { ...payment, status: 'Approved' as const } : payment
-      )
+  const updatePaymentStatus = async (id: string, status: 'Approved' | 'Rejected') => {
+    if (!token) return;
+
+    const data = await apiRequest<PaymentResponse>(
+      `/payments/${id}/status`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      },
+      token
+    );
+
+    setPayments((current) =>
+      current.map((payment) => (payment.id === id ? data.payment : payment))
     );
   };
 
-  const rejectPayment = (id: string) => {
-    setPayments(
-      payments.map((payment) =>
-        payment.id === id ? { ...payment, status: 'Rejected' as const } : payment
-      )
-    );
+  const approvePayment = async (id: string) => {
+    await updatePaymentStatus(id, 'Approved');
+  };
+
+  const rejectPayment = async (id: string) => {
+    await updatePaymentStatus(id, 'Rejected');
   };
 
   return (
@@ -219,6 +188,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         payments,
+        isLoading,
         login,
         logout,
         register,
