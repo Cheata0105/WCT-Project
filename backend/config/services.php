@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'bakong' => [
+        'token' => env('BAKONG_API_TOKEN'),
+        'url'   => env('BAKONG_API_URL'),
+    ],
+
+
 ];

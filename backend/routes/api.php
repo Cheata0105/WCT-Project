@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BakongController;
 use App\Http\Controllers\PaymentController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,3 +13,9 @@ Route::post('/logout', [AuthController::class, 'logout']);
 Route::get('/payments', [PaymentController::class, 'index']);
 Route::post('/payments', [PaymentController::class, 'store']);
 Route::patch('/payments/{payment}/status', [PaymentController::class, 'updateStatus']);
+
+
+// Route::post('/bakong/generate-qr', [BakongController::class, 'generateQR']);
+// Route::post('/bakong/verify', [BakongController::class, 'checkPayment']);
+
+
