@@ -14,8 +14,7 @@ Route::get('/payments', [PaymentController::class, 'index']);
 Route::post('/payments', [PaymentController::class, 'store']);
 Route::patch('/payments/{payment}/status', [PaymentController::class, 'updateStatus']);
 
-
-// Route::post('/bakong/generate-qr', [BakongController::class, 'generateQR']);
-// Route::post('/bakong/verify', [BakongController::class, 'checkPayment']);
+Route::post('/bakong/generate-qr', [BakongController::class, 'generateQR']);
+Route::post('/bakong/verify', [BakongController::class, 'checkPayment']);
 
 
